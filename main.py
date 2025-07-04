@@ -1,53 +1,47 @@
-import os
 import requests
 import base64
+import os
 
-PROTOCOLS = {
-    'vmess': 'vmess://',
-    'vless': 'vless://',
-    'trojan': 'trojan://',
-    'shadowsocks': 'ss://',
-    'hysteria': 'hysteria://',
-    'hysteria2': 'hysteria2://',
-    'reality': 'reality://',
-    'tuic': 'tuic://',
-    'ssh': 'ssh://'
-}
+PROTOCOLS = [
+    'vmess://', 'vless://', 'trojan://', 'ss://', 'shadowsocks://',
+    'hysteria://', 'hysteria2://', 'reality://', 'tuic://', 'ssh://'
+]
 
-def clean_line(line: str, tag="@F0rc3Run") -> str:
-    if '#' in line:
-        line = line.split('#')[0]
-    return line + f'#{tag}'
-
-def fetch_subscription(url):
-    try:
-        r = requests.get(url, timeout=15)
-        r.raise_for_status()
-        raw = base64.b64decode(r.text.strip()).decode()
-        return [line.strip() for line in raw.splitlines() if any(line.startswith(p) for p in PROTOCOLS.values())]
-    except Exception as e:
-        print(f"[ERROR] Cannot fetch {url}: {e}")
-        return []
+def clean_line(line):
+    for proto in PROTOCOLS:
+        if line.startswith(proto):
+            if '#' in line:
+                line = line.split('#')[0]
+            return line + '#@F0rc3Run'
+    return None
 
 def main():
-    urls = os.getenv("SUB_LINKS", "").splitlines()
-    if not urls:
-        print("[ERROR] SUB_LINKS is empty.")
-        return
+    urls = os.getenv("SUB_LINKS", "").split()
+    all_lines = []
 
-    cleaned = []
     for url in urls:
-        for line in fetch_subscription(url.strip()):
-            cleaned.append(clean_line(line))
+        try:
+            print(f"[INFO] Downloading: {url}")
+            res = requests.get(url, timeout=10)
+            res.raise_for_status()
+            content = res.content.decode()
 
-    unique = list(set(cleaned))
-    output = "\n".join(unique).encode()
-    encoded = base64.b64encode(output).decode()
+            # اگر base64 بود
+            try:
+                decoded = base64.b64decode(content).decode()
+                lines = decoded.strip().splitlines()
+            except:
+                lines = content.strip().splitlines()
+
+            cleaned = [clean_line(line.strip()) for line in lines]
+            all_lines.extend([l for l in cleaned if l])
+        except Exception as e:
+            print(f"[ERROR] {url} => {e}")
 
     os.makedirs("output", exist_ok=True)
     with open("output/cleaned.txt", "w") as f:
-        f.write(encoded)
-    print(f"[INFO] Wrote {len(unique)} cleaned configs to output/cleaned.txt")
+        f.write("\n".join(all_lines))
+    print(f"[DONE] {len(all_lines)} config cleaned and saved.")
 
 if __name__ == "__main__":
     main()
