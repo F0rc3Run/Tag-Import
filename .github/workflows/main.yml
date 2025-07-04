@@ -1,0 +1,25 @@
+name: Clean Subscriptions
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'
+  workflow_dispatch:
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    env:
+      SUB_LINKS: ${{ secrets.SUB_LINKS }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python main.py
+      - run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add output/cleaned.txt
+          git commit -m "🔁 Auto update cleaned subscription"
+          git push
