@@ -2,22 +2,33 @@ import requests
 import base64
 import os
 
-PROTOCOLS = [
-    'vmess://', 'vless://', 'trojan://', 'ss://', 'shadowsocks://',
-    'hysteria://', 'hysteria2://', 'reality://', 'tuic://', 'ssh://'
-]
+PROTOCOLS = {
+    'vmess': 'vmess://',
+    'vless': 'vless://',
+    'trojan': 'trojan://',
+    'ss': 'ss://',
+    'shadowsocks': 'ss://',
+    'hysteria': 'hysteria://',
+    'hysteria2': 'hysteria2://',
+    'reality': 'reality://',
+    'tuic': 'tuic://',
+    'ssh': 'ssh://'
+}
+
+def get_protocol(line):
+    for proto, prefix in PROTOCOLS.items():
+        if line.startswith(prefix):
+            return proto
+    return None
 
 def clean_line(line):
-    for proto in PROTOCOLS:
-        if line.startswith(proto):
-            if '#' in line:
-                line = line.split('#')[0]
-            return line + '#@F0rc3Run'
-    return None
+    if '#' in line:
+        line = line.split('#')[0]
+    return line + '#@F0rc3Run'
 
 def main():
     urls = os.getenv("SUB_LINKS", "").split()
-    all_lines = []
+    protocol_data = {proto: [] for proto in PROTOCOLS}
 
     for url in urls:
         try:
@@ -26,22 +37,27 @@ def main():
             res.raise_for_status()
             content = res.content.decode()
 
-            # اگر base64 بود
             try:
                 decoded = base64.b64decode(content).decode()
                 lines = decoded.strip().splitlines()
             except:
                 lines = content.strip().splitlines()
 
-            cleaned = [clean_line(line.strip()) for line in lines]
-            all_lines.extend([l for l in cleaned if l])
+            for line in lines:
+                line = line.strip()
+                proto = get_protocol(line)
+                if proto:
+                    cleaned = clean_line(line)
+                    protocol_data[proto].append(cleaned)
         except Exception as e:
             print(f"[ERROR] {url} => {e}")
 
     os.makedirs("output", exist_ok=True)
-    with open("output/cleaned.txt", "w") as f:
-        f.write("\n".join(all_lines))
-    print(f"[DONE] {len(all_lines)} config cleaned and saved.")
+    for proto, lines in protocol_data.items():
+        if lines:
+            with open(f"output/{proto}.txt", "w") as f:
+                f.write("\n".join(sorted(set(lines))))
+            print(f"[OK] Saved {len(lines)} configs to output/{proto}.txt")
 
 if __name__ == "__main__":
     main()
